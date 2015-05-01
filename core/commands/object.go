@@ -91,7 +91,7 @@ output is the raw data of the object.
 		}
 
 		fpath := path.Path(req.Arguments()[0])
-		output, err := objectData(n, fpath)
+		output, err := objectData(core.Resolve(req.Context().Context, n, fpath))
 		if err != nil {
 			res.SetError(err, cmds.ErrNormal)
 			return
@@ -121,7 +121,7 @@ multihash.
 		}
 
 		fpath := path.Path(req.Arguments()[0])
-		output, err := objectLinks(n, fpath)
+		output, err := objectLinks(core.Resolve(req.Context().Context, n, fpath))
 		if err != nil {
 			res.SetError(err, cmds.ErrNormal)
 			return
@@ -176,7 +176,7 @@ This command outputs data in the following encodings:
 
 		fpath := path.Path(req.Arguments()[0])
 
-		object, err := objectGet(n, fpath)
+		object, err := core.Resolve(req.Context().Context, n, fpath)
 		if err != nil {
 			res.SetError(err, cmds.ErrNormal)
 			return
@@ -242,7 +242,7 @@ var objectStatCmd = &cmds.Command{
 
 		fpath := path.Path(req.Arguments()[0])
 
-		object, err := objectGet(n, fpath)
+		object, err := core.Resolve(req.Context().Context, n, fpath)
 		if err != nil {
 			res.SetError(err, cmds.ErrNormal)
 			return
@@ -344,39 +344,21 @@ Data should be in the format specified by the --inputenc flag.
 }
 
 // objectData takes a key string and writes out the raw bytes of that node (if there is one)
-func objectData(n *core.IpfsNode, fpath path.Path) (io.Reader, error) {
-	dagnode, err := core.Resolve(n, fpath)
+func objectData(n *dag.Node, err error) (io.Reader, error) {
 	if err != nil {
 		return nil, err
 	}
 
-	log.Debugf("objectData: found dagnode %s (# of bytes: %d - # links: %d)", fpath, len(dagnode.Data), len(dagnode.Links))
-
-	return bytes.NewReader(dagnode.Data), nil
+	return bytes.NewReader(n.Data), nil
 }
 
 // objectLinks takes a key string and lists the links it points to
-func objectLinks(n *core.IpfsNode, fpath path.Path) (*Object, error) {
-	dagnode, err := core.Resolve(n, fpath)
+func objectLinks(n *dag.Node, err error) (*Object, error) {
 	if err != nil {
 		return nil, err
 	}
 
-	log.Debugf("objectLinks: found dagnode %s (# of bytes: %d - # links: %d)", fpath, len(dagnode.Data), len(dagnode.Links))
-
-	return getOutput(dagnode)
-}
-
-// objectGet takes a key string from args and a format option and serializes the dagnode to that format
-func objectGet(n *core.IpfsNode, fpath path.Path) (*dag.Node, error) {
-	dagnode, err := core.Resolve(n, fpath)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Debugf("objectGet: found dagnode %s (# of bytes: %d - # links: %d)", fpath, len(dagnode.Data), len(dagnode.Links))
-
-	return dagnode, nil
+	return getOutput(n)
 }
 
 // ErrEmptyNode is returned when the input to 'ipfs object put' contains no data
