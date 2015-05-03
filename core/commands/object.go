@@ -91,12 +91,12 @@ output is the raw data of the object.
 		}
 
 		fpath := path.Path(req.Arguments()[0])
-		output, err := objectData(core.Resolve(req.Context().Context, n, fpath))
+		node, err := core.Resolve(req.Context().Context, n, fpath)
 		if err != nil {
 			res.SetError(err, cmds.ErrNormal)
 			return
 		}
-		res.SetOutput(output)
+		res.SetOutput(bytes.NewReader(node.Data))
 	},
 }
 
@@ -121,7 +121,12 @@ multihash.
 		}
 
 		fpath := path.Path(req.Arguments()[0])
-		output, err := objectLinks(core.Resolve(req.Context().Context, n, fpath))
+		node, err := core.Resolve(req.Context().Context, n, fpath)
+		if err != nil {
+			res.SetError(err, cmds.ErrNormal)
+			return
+		}
+		output, err := getOutput(node)
 		if err != nil {
 			res.SetError(err, cmds.ErrNormal)
 			return
@@ -341,24 +346,6 @@ Data should be in the format specified by the --inputenc flag.
 		},
 	},
 	Type: Object{},
-}
-
-// objectData takes a key string and writes out the raw bytes of that node (if there is one)
-func objectData(n *dag.Node, err error) (io.Reader, error) {
-	if err != nil {
-		return nil, err
-	}
-
-	return bytes.NewReader(n.Data), nil
-}
-
-// objectLinks takes a key string and lists the links it points to
-func objectLinks(n *dag.Node, err error) (*Object, error) {
-	if err != nil {
-		return nil, err
-	}
-
-	return getOutput(n)
 }
 
 // ErrEmptyNode is returned when the input to 'ipfs object put' contains no data
