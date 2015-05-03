@@ -62,6 +62,5 @@ func (r *resolver) resolveRecurse(depth int) (*merkledag.Node, error) {
 	}
 
 	// ok, we have an ipfs path now (or what we'll treat as one)
-	// TODO(cryptix): we are loosing the context from the initial Resolve(ctx, ...) call here
-	return r.n.Resolver.ResolvePath(r.p)
+	return r.n.Resolver.ResolvePath(r.ctx, r.p)
 }

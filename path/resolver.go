@@ -7,6 +7,7 @@ import (
 
 	mh "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-multihash"
 	"github.com/ipfs/go-ipfs/Godeps/_workspace/src/golang.org/x/net/context"
+
 	merkledag "github.com/ipfs/go-ipfs/merkledag"
 	u "github.com/ipfs/go-ipfs/util"
 )
@@ -57,33 +58,32 @@ func SplitAbsPath(fpath Path) (mh.Multihash, []string, error) {
 
 // ResolvePath fetches the node for given path. It returns the last item
 // returned by ResolvePathComponents.
-func (s *Resolver) ResolvePath(fpath Path) (*merkledag.Node, error) {
-	nodes, err := s.ResolvePathComponents(fpath)
+func (s *Resolver) ResolvePath(ctx context.Context, fpath Path) (*merkledag.Node, error) {
+	nodes, err := s.ResolvePathComponents(ctx, fpath)
 	if err != nil || nodes == nil {
 		return nil, err
-	} else {
-		return nodes[len(nodes)-1], err
 	}
+	return nodes[len(nodes)-1], err
 }
 
 // ResolvePathComponents fetches the nodes for each segment of the given path.
 // It uses the first path component as a hash (key) of the first node, then
 // resolves all other components walking the links, with ResolveLinks.
-func (s *Resolver) ResolvePathComponents(fpath Path) ([]*merkledag.Node, error) {
+func (s *Resolver) ResolvePathComponents(ctx context.Context, fpath Path) ([]*merkledag.Node, error) {
 	h, parts, err := SplitAbsPath(fpath)
 	if err != nil {
 		return nil, err
 	}
 
-	log.Debug("Resolve dag get.\n")
-	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute)
+	log.Debug("Resolve dag get.")
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 	nd, err := s.DAG.Get(ctx, u.Key(h))
 	if err != nil {
 		return nil, err
 	}
 
-	return s.ResolveLinks(nd, parts)
+	return s.ResolveLinks(ctx, nd, parts)
 }
 
 // ResolveLinks iteratively resolves names by walking the link hierarchy.
@@ -93,12 +93,14 @@ func (s *Resolver) ResolvePathComponents(fpath Path) ([]*merkledag.Node, error) 
 //
 // ResolveLinks(nd, []string{"foo", "bar", "baz"})
 // would retrieve "baz" in ("bar" in ("foo" in nd.Links).Links).Links
-func (s *Resolver) ResolveLinks(ndd *merkledag.Node, names []string) (
-	result []*merkledag.Node, err error) {
+func (s *Resolver) ResolveLinks(ctx context.Context, ndd *merkledag.Node, names []string) ([]*merkledag.Node, error) {
 
-	result = make([]*merkledag.Node, 0, len(names)+1)
+	result := make([]*merkledag.Node, 0, len(names)+1)
 	result = append(result, ndd)
 	nd := ndd // dup arg workaround
+
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
 
 	// for each of the path components
 	for _, name := range names {
@@ -121,9 +123,12 @@ func (s *Resolver) ResolveLinks(ndd *merkledag.Node, names []string) (
 
 		if nlink.Node == nil {
 			// fetch object for link and assign to nd
-			ctx, cancel := context.WithTimeout(context.TODO(), time.Minute)
-			defer cancel()
-			nd, err = s.DAG.Get(ctx, next)
+			/*
+				TODO(cryptix): we wrapped a new context for each name iteration
+				is this correct?
+				moved it out of the loop for now
+			*/
+			nd, err := s.DAG.Get(ctx, next)
 			if err != nil {
 				return append(result, nd), err
 			}
@@ -134,5 +139,5 @@ func (s *Resolver) ResolveLinks(ndd *merkledag.Node, names []string) (
 
 		result = append(result, nlink.Node)
 	}
-	return
+	return result, nil
 }

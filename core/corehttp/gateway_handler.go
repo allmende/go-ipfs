@@ -101,7 +101,7 @@ func (i *gatewayHandler) ResolvePath(ctx context.Context, p string) (*dag.Node, 
 		return nil, "", err
 	}
 
-	node, err := i.node.Resolver.ResolvePath(path.Path(p))
+	node, err := i.node.Resolver.ResolvePath(ctx, path.Path(p))
 	if err != nil {
 		return nil, "", err
 	}
@@ -362,7 +362,7 @@ func (i *gatewayHandler) putHandler(w http.ResponseWriter, r *http.Request) {
 
 	// resolving path components into merkledag nodes. if a component does not
 	// resolve, create empty directories (which will be linked and populated below.)
-	path_nodes, err := i.node.Resolver.ResolveLinks(rootnd, components[:len(components)-1])
+	path_nodes, err := i.node.Resolver.ResolveLinks(tctx, rootnd, components[:len(components)-1])
 	if _, ok := err.(path.ErrNoLink); ok {
 		// Create empty directories, links will be made further down the code
 		for len(path_nodes) < len(components) {
@@ -424,7 +424,7 @@ func (i *gatewayHandler) deleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	path_nodes, err := i.node.Resolver.ResolveLinks(rootnd, components[:len(components)-1])
+	path_nodes, err := i.node.Resolver.ResolveLinks(tctx, rootnd, components[:len(components)-1])
 	if err != nil {
 		webError(w, "Could not resolve parent object", err, http.StatusBadRequest)
 		return
